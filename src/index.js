@@ -1,4 +1,5 @@
 const { Telegraf } = require('telegraf');
+const express = require('express');
 const { botToken } = require('./config');
 const { connectDB } = require('./db');
 
@@ -14,6 +15,16 @@ if (!botToken) {
 }
 
 const bot = new Telegraf(botToken);
+
+// Minimal HTTP server so Render/Koyeb detect an open port
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.get('/', (_req, res) => res.send('Bot is running'));
+
+app.listen(PORT, () => {
+  console.log(`Health-check server listening on port ${PORT}`);
+});
 
 async function main() {
   await connectDB();
@@ -38,16 +49,12 @@ async function main() {
   registerPostFlow(bot);
 
   bot.catch((err, ctx) => {
-    console.error(`Error for ${ctx.updateType}:`, err);
+    const description = err?.response?.description || err?.description || '';
+    if (description.includes('message is not modified')) return;
+    console.error(`Error for ${ctx?.updateType || 'update'}:`, err);
   });
 
-  await bot.catch((err, ctx) => {
-  const description = err?.response?.description || err?.description || '';
-  if (description.includes('message is not modified')) return;
-  console.error(`Error for ${ctx?.updateType || 'update'}:`, err);
-});
-
-bot.launch();
+  bot.launch();
   console.log('Bot is running.');
 }
 
